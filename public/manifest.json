@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+
+  "name": "Live Chat Grid",
+  "version": "1.0.0",
+  "description": "Live Chat Grid",
+  "author": "Susumu OTA",
+  "homepage_url": "https://github.com/susumuota/livechatgrid",
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/watch?v=*"],
+      "all_frames": true,
+      "js": ["yt.js"]
+    },
+    {
+      "matches": ["https://live.nicovideo.jp/watch/lv*"],
+      "all_frames": true,
+      "js": ["nico.js"]
+    }
+  ],
+
+  "permissions": [
+    "contextMenus",
+    "storage"
+  ]
+}

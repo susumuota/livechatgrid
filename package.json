@@ -1,0 +1,47 @@
+{
+  "name": "livechatgrid",
+  "version": "1.0.0",
+  "description": "Live Chat Grid",
+  "private": true,
+  "scripts": {
+    "watch": "webpack --config webpack.dev.js --watch",
+    "build": "webpack --config webpack.prod.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/susumuota/livechatgrid"
+  },
+  "keywords": [],
+  "author": "Susumu OTA",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/susumuota/livechatgrid/issues"
+  },
+  "homepage": "https://github.com/susumuota/livechatgrid#readme",
+  "devDependencies": {
+    "@types/chrome": "^0.0.176",
+    "@types/react": "^17.0.38",
+    "@types/react-dom": "^17.0.11",
+    "@typescript-eslint/eslint-plugin": "^5.9.0",
+    "@typescript-eslint/parser": "^5.9.0",
+    "axios": "^0.24.0",
+    "copy-webpack-plugin": "^10.2.0",
+    "eslint": "^8.6.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-airbnb-typescript": "^16.1.0",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-react": "^7.28.0",
+    "ts-loader": "^9.2.6",
+    "typescript": "^4.5.4",
+    "webpack": "^5.65.0",
+    "webpack-cli": "^4.9.1",
+    "webpack-merge": "^5.8.0"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.7.1",
+    "@emotion/styled": "^11.6.0",
+    "@mui/material": "^5.2.7",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2"
+  }
+}
