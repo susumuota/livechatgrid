@@ -2,7 +2,7 @@
   "manifest_version": 3,
 
   "name": "Live Chat Grid",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Live Chat Grid",
   "author": "Susumu OTA",
   "homepage_url": "https://github.com/susumuota/livechatgrid",
@@ -13,7 +13,7 @@
 
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/watch?v=*"],
+      "matches": ["https://www.youtube.com/*"],
       "all_frames": true,
       "js": ["yt.js"]
     },
@@ -26,6 +26,7 @@
 
   "permissions": [
     "contextMenus",
-    "storage"
+    "storage",
+    "tabs"
   ]
 }

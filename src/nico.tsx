@@ -14,10 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { GetMessageRootType, GetMessagesType, MessageType, startObserver } from './common';
+import { MessageType, updateObserver } from './common';
 
-const getMessageRoot: GetMessageRootType = () => document.querySelector('div[class^=___table___]');
+/** Get live chat element to observe */
+const getMessageRoot = () => document.querySelector('div[class^=___table___]');
 
+/** Parse element to object */
 const parseMessage = (message: Element) => {
   const type = 'nico';
   const id = message.querySelector('span[class^=___comment-number___]')?.textContent ?? '';
@@ -31,19 +33,32 @@ const parseMessage = (message: Element) => {
   return { type, id, status, img, timestamp, authorName, messageHtml, messageText } as MessageType;
 };
 
-const getMessages: GetMessagesType = (messageRoot) => (
+/** Get live chat messages */
+const getMessages = (messageRoot: Element) => (
   Array.from(messageRoot.querySelectorAll('div[class^=___table-row___]'))
     .map(parseMessage)
     .filter((m) => m.id)
 );
 
+const sendDelayMs = 3000;
+const intervalMs = 5000;
+let timer: NodeJS.Timer | null = null;
+let messageRoot: Element | null = null;
 let observer: MutationObserver | null = null;
 
 window.addEventListener('load', () => {
-  observer?.disconnect();
-  observer = startObserver(getMessageRoot, getMessages, 3000);
+  console.debug('load');
+  if (timer) clearInterval(timer);
+  timer = setInterval(async () => {
+    // eslint-disable-next-line max-len
+    ({ observer, messageRoot } = await updateObserver({ observer, messageRoot }, getMessageRoot, getMessages, sendDelayMs));
+  }, intervalMs);
 });
 
 window.addEventListener('unload', () => {
+  if (timer) clearInterval(timer);
+  timer = null;
   observer?.disconnect();
+  observer = null;
+  messageRoot = null;
 });

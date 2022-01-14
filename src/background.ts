@@ -35,7 +35,11 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
 // eslint-disable-next-line max-len
 chrome.runtime.onMessage.addListener((request: { type: string, messages: MessageType[] }, _, sendResponse) => {
   if (request.type !== 'setMessages') return true;
-  request.messages.map((m) => console.debug(`${m.type.padEnd(4, ' ')} ${m.timestamp} ${m.messageText} [${m.authorName}]`));
+  request.messages.map((m) => {
+    const out = m.type === 'yt' ? console.info : console.debug;
+    out(`${m.type.padEnd(4, ' ')} ${m.timestamp} ${m.messageText} [${m.authorName}]`);
+    return m;
+  });
   sendResponse({ message: 'background.ts: setMessages: done' });
   return true;
 });

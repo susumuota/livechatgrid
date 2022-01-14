@@ -15,6 +15,7 @@
 // limitations under the License.
 
 export type ConfigType = {
+  readonly isActive?: boolean,
   readonly columns?: number,
   readonly rows?: number,
   readonly rowHeight?: string,
@@ -31,6 +32,7 @@ export type ConfigType = {
 };
 
 export const DEFAULT_CONFIG = {
+  isActive: true,
   columns: 1,
   rows: 10,
   rowHeight: '5em', // 1.5 * 2 + 2 === (1.5 line-height) * (2 lines) + (2 padding)
@@ -64,10 +66,6 @@ export type MessageType = {
   messageText: string,
 };
 
-export type GetMessageRootType = () => Element | null;
-
-export type GetMessagesType = (messageRoot: Element) => MessageType[];
-
 const sendSetMessages = (messages: MessageType[]) => {
   try {
     chrome.runtime.sendMessage({ type: 'setMessages', messages }, (response) => {
@@ -78,18 +76,19 @@ const sendSetMessages = (messages: MessageType[]) => {
   }
 };
 
-// eslint-disable-next-line max-len
-export const startObserver = (getMessageRoot: GetMessageRootType, getMessages: GetMessagesType, delay: number) => {
-  const messageRoot = getMessageRoot();
-  if (!messageRoot) return null;
+const startObserver = (
+  messageRoot: Element,
+  getMessages: (messageRoot: Element) => MessageType[],
+  sendDelayMs: number,
+) => {
   const firstMessages = getMessages(messageRoot);
   sendSetMessages(firstMessages);
   let ids = firstMessages.map((m) => m.id);
   const observer = new MutationObserver(() => {
     const messages = getMessages(messageRoot);
     const filteredMessages = messages.filter((m) => !ids.includes(m.id));
-    if (delay > 0) {
-      setTimeout(() => sendSetMessages(filteredMessages), delay);
+    if (sendDelayMs > 0) {
+      setTimeout(() => sendSetMessages(filteredMessages), sendDelayMs);
     } else {
       sendSetMessages(filteredMessages);
     }
@@ -97,4 +96,36 @@ export const startObserver = (getMessageRoot: GetMessageRootType, getMessages: G
   });
   observer.observe(messageRoot, { childList: true });
   return observer;
+};
+
+export const updateObserver = async (
+  oldState: { observer: MutationObserver | null, messageRoot: Element | null },
+  getMessageRoot: () => Element | null,
+  getMessages: (messageRoot: Element) => MessageType[],
+  sendDelayMs: number,
+) => {
+  try {
+    const { observer, messageRoot } = oldState;
+    const config = await getConfig();
+    if (!config || !config['isActive']) {
+      observer?.disconnect();
+      return { observer: null, messageRoot: null };
+    }
+    const nextMessageRoot = getMessageRoot();
+    if (!nextMessageRoot) {
+      observer?.disconnect();
+      return { observer: null, messageRoot: null };
+    }
+    if (messageRoot === nextMessageRoot) {
+      return { observer, messageRoot };
+    }
+    observer?.disconnect();
+    return {
+      observer: startObserver(nextMessageRoot, getMessages, sendDelayMs),
+      messageRoot: nextMessageRoot,
+    };
+  } catch (err) {
+    console.debug(err);
+    return { observer: null, messageRoot: null };
+  }
 };

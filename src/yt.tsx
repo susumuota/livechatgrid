@@ -14,10 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { GetMessageRootType, GetMessagesType, MessageType, startObserver } from './common';
+import { MessageType, updateObserver } from './common';
 
-/** Get YouTube live chat html element to observe */
-const getMessageRoot: GetMessageRootType = () => {
+/** Get live chat element to observe */
+const getMessageRoot = () => {
   const queryItems = (w: Window) => w.document.querySelector('div#items.yt-live-chat-item-list-renderer');
   if (window.frames.length === 0) return queryItems(window);
   const chatWindow = Array.from(window.frames).find((f) => f.frameElement?.id === 'chatframe');
@@ -33,7 +33,7 @@ const to24h = (timestamp: string) => {
   return `${hour24}:${minute}`;
 };
 
-/** Parse message to object */
+/** Parse element to object */
 const parseMessage = (message: Element) => {
   const type = 'yt';
   const { id } = message;
@@ -48,18 +48,31 @@ const parseMessage = (message: Element) => {
 };
 
 /** Get live chat messages */
-const getMessages: GetMessagesType = (messageRoot) => Array.from(messageRoot.querySelectorAll('yt-live-chat-text-message-renderer')).map(parseMessage);
+const getMessages = (messageRoot: Element) => (
+  Array.from(messageRoot.querySelectorAll('yt-live-chat-text-message-renderer')).map(parseMessage)
+);
 
+const sendDelayMs = 0;
+const intervalMs = 5000;
+let timer: NodeJS.Timer | null = null;
+let messageRoot: Element | null = null;
 let observer: MutationObserver | null = null;
 
-window.addEventListener('yt-page-data-updated', () => {
-  console.debug('yt-page-data-updated');
-  setTimeout(() => {
-    observer?.disconnect();
-    observer = startObserver(getMessageRoot, getMessages, 0);
-  }, 3000);
+window.addEventListener('yt-navigate-finish', () => {
+  console.debug('yt-navigate-finish');
+  if (timer) clearInterval(timer);
+  // TODO: adjust manifest.json
+  if (!window.location.href.match(/^https:\/\/www\.youtube\.com\/watch\?v=.+/)) return;
+  timer = setInterval(async () => {
+    // eslint-disable-next-line max-len
+    ({ observer, messageRoot } = await updateObserver({ observer, messageRoot }, getMessageRoot, getMessages, sendDelayMs));
+  }, intervalMs);
 });
 
 window.addEventListener('unload', () => {
+  if (timer) clearInterval(timer);
+  timer = null;
   observer?.disconnect();
+  observer = null;
+  messageRoot = null;
 });

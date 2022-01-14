@@ -53,12 +53,12 @@ const useConfig = <T,>(configName: keyof ConfigType): [T, React.Dispatch<React.S
   return [state, setState];
 };
 
-const createDummyMessages = (size: number) => {
+const createDummyMessages = (arrayLength: number) => {
   const dummy = () => {
     const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
     return { type: 'dummy', id, status: '', img: '', timestamp: '', authorName: '', messageHtml: '', messageText: '' } as MessageType;
   };
-  return [...Array<number>(size).keys()].map(dummy);
+  return [...Array<number>(arrayLength).keys()].map(dummy); // range(arrayLength)
 };
 
 function MessageHeader({ message }: { message: MessageType }) {
