@@ -53,7 +53,11 @@ export const DEFAULT_CONFIG: ConfigType = {
 
 export const setConfig = (config: ConfigType) => chrome.storage.local.set(config);
 
-export const setConfigValue = <T>(key: keyof ConfigType, value: T) => (
+// "K extends keyof T", see
+// https://www.typescriptlang.org/docs/handbook/2/generics.html#using-type-parameters-in-generic-constraints
+// "T[K]", see
+// https://www.typescriptlang.org/docs/handbook/2/indexed-access-types.html
+export const setConfigValue = <K extends keyof ConfigType>(key: K, value: ConfigType[K]) => (
   chrome.storage.local.set({ [key]: value })
 );
 
@@ -61,9 +65,8 @@ export const getConfig = (defaultConfig: ConfigType = DEFAULT_CONFIG) => (
   chrome.storage.local.get(defaultConfig) as Promise<ConfigType>
 );
 
-// TODO: refine
-export const getConfigValue = async <T>(key: keyof ConfigType) => (
-  (await chrome.storage.local.get({ [key]: DEFAULT_CONFIG[key] }))[key] as T
+export const getConfigValue = async <K extends keyof ConfigType>(key: K) => (
+  (await chrome.storage.local.get({ [key]: DEFAULT_CONFIG[key] }))[key] as ConfigType[K]
 );
 
 export const clearConfig = () => chrome.storage.local.clear();

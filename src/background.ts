@@ -27,10 +27,10 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener(async (info) => {
   if (info.menuItemId !== 'livechatgrid-menu') return true;
   const tab = await chrome.tabs.create({ url: 'index.html', active: false });
-  const left = await getConfigValue<number>('left');
-  const top = await getConfigValue<number>('top');
-  const width = await getConfigValue<number>('width');
-  const height = await getConfigValue<number>('height');
+  const left = await getConfigValue('left');
+  const top = await getConfigValue('top');
+  const width = await getConfigValue('width');
+  const height = await getConfigValue('height');
   chrome.windows.create({ tabId: tab.id, type: 'popup', focused: true, left, top, width, height });
   return true;
 });
@@ -54,8 +54,8 @@ chrome.windows.onBoundsChanged.addListener(async (window) => {
   if (!tabs || !tabs[0] || tabs[0].title !== 'Live Chat Grid') return;
   const { left, top, width, height } = window;
   if (!left || !top || !width || !height) return;
-  setConfigValue<number>('left', left);
-  setConfigValue<number>('top', top);
-  setConfigValue<number>('width', width);
-  setConfigValue<number>('height', height);
+  setConfigValue('left', left);
+  setConfigValue('top', top);
+  setConfigValue('width', width);
+  setConfigValue('height', height);
 });

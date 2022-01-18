@@ -20,30 +20,29 @@ import { Box, createTheme, CssBaseline, Fade, Paper, ThemeProvider, Tooltip, Typ
 
 import { ConfigType, getConfig, getConfigValue, MessageType, setConfigValue } from './common';
 
-// eslint-disable-next-line @typescript-eslint/comma-dangle
-const useConfig = <T,>(
-  configName: keyof ConfigType, initialState: T,
-): [T, React.Dispatch<React.SetStateAction<T>>] => {
-  const [state, setState] = useState<T>(initialState);
+const useConfig = <K extends keyof ConfigType>(
+  configName: K, initialState: ConfigType[K],
+): [ConfigType[K], React.Dispatch<React.SetStateAction<ConfigType[K]>>] => {
+  const [state, setState] = useState<ConfigType[K]>(initialState);
 
   // load
   useEffect(() => {
     const loadConfig = async () => {
-      setState(await getConfigValue<T>(configName));
+      setState(await getConfigValue(configName));
     };
     loadConfig();
   }, []);
 
   // save
   useEffect(() => {
-    setConfigValue<T>(configName, state);
+    setConfigValue(configName, state);
   }, [state]);
 
   // update
   const handleChanged = useCallback(async (changes: object, namespace: string) => {
     if (namespace !== 'local') return;
     Object.keys(changes).map(async (key) => {
-      if (key === configName) setState(await getConfigValue<T>(configName));
+      if (key === configName) setState(await getConfigValue(configName));
       return key;
     });
   }, []);
@@ -101,14 +100,14 @@ function App({ initialConfig }: { initialConfig: ConfigType }) {
   const [isAutoScroll, setAutoScroll] = useState(true);
   const [isNeedScroll, setNeedScroll] = useState(false);
 
-  const [columns] = useConfig<number>('columns', initialConfig.columns);
-  const [rows] = useConfig<number>('rows', initialConfig.rows);
-  const [columnWidth] = useConfig<string>('columnWidth', initialConfig.columnWidth);
-  const [rowHeight] = useConfig<string>('rowHeight', initialConfig.rowHeight);
-  const [marginScroll] = useConfig<number>('marginScroll', initialConfig.marginScroll);
-  const [isFixedGrid] = useConfig<boolean>('isFixedGrid', initialConfig.isFixedGrid);
-  const [fadeTimeoutEnter] = useConfig<number>('fadeTimeoutEnter', initialConfig.fadeTimeoutEnter);
-  const [fadeTimeoutExit] = useConfig<number>('fadeTimeoutExit', initialConfig.fadeTimeoutExit);
+  const [columns] = useConfig('columns', initialConfig.columns);
+  const [rows] = useConfig('rows', initialConfig.rows);
+  const [columnWidth] = useConfig('columnWidth', initialConfig.columnWidth);
+  const [rowHeight] = useConfig('rowHeight', initialConfig.rowHeight);
+  const [marginScroll] = useConfig('marginScroll', initialConfig.marginScroll);
+  const [isFixedGrid] = useConfig('isFixedGrid', initialConfig.isFixedGrid);
+  const [fadeTimeoutEnter] = useConfig('fadeTimeoutEnter', initialConfig.fadeTimeoutEnter);
+  const [fadeTimeoutExit] = useConfig('fadeTimeoutExit', initialConfig.fadeTimeoutExit);
 
   const theme = useMemo(() => createTheme({ palette: { mode: 'dark' } }), []);
   const lastRef = useMemo(() => createRef<HTMLDivElement>(), []);

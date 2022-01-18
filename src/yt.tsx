@@ -72,7 +72,7 @@ window.addEventListener('yt-navigate-finish', async () => {
   if (timer) clearInterval(timer);
   // TODO: adjust manifest.json
   if (!window.location.href.match(/^https:\/\/www\.youtube\.com\/watch\?v=.+/)) return;
-  const timerIntervalMs = await getConfigValue<number>('timerIntervalMs');
+  const timerIntervalMs = await getConfigValue('timerIntervalMs');
   timer = setInterval(async () => {
     ({ observer, messageRoot } = await updateObserver(
       { observer, messageRoot },

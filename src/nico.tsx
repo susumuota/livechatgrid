@@ -61,8 +61,8 @@ let observer: MutationObserver | null = null;
 window.addEventListener('load', async () => {
   console.debug('load');
   if (timer) clearInterval(timer);
-  const timerIntervalMs = await getConfigValue<number>('timerIntervalMs');
-  const nicoSendDelayMs = await getConfigValue<number>('nicoSendDelayMs');
+  const timerIntervalMs = await getConfigValue('timerIntervalMs');
+  const nicoSendDelayMs = await getConfigValue('nicoSendDelayMs');
   const setMessagesFunction = nicoSendDelayMs > 0
     ? (messages: MessageType[]) => setTimeout(() => setMessages(messages), nicoSendDelayMs)
     : setMessages;
