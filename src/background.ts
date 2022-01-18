@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { getConfig, MessageType, setConfig } from './common';
+import { getConfigValue, MessageType, setConfigValue } from './common';
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -27,27 +27,35 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener(async (info) => {
   if (info.menuItemId !== 'livechatgrid-menu') return true;
   const tab = await chrome.tabs.create({ url: 'index.html', active: false });
-  const config = await getConfig();
-  chrome.windows.create({ tabId: tab.id, ...config['createWindow'] });
+  const left = await getConfigValue<number>('left');
+  const top = await getConfigValue<number>('top');
+  const width = await getConfigValue<number>('width');
+  const height = await getConfigValue<number>('height');
+  chrome.windows.create({ tabId: tab.id, type: 'popup', focused: true, left, top, width, height });
   return true;
 });
 
-// eslint-disable-next-line max-len
-chrome.runtime.onMessage.addListener((request: { type: string, messages: MessageType[] }, _, sendResponse) => {
-  if (request.type !== 'setMessages') return true;
-  request.messages.map((m) => {
-    const out = m.type === 'yt' ? console.info : console.debug;
-    out(`${m.type.padEnd(4, ' ')} ${m.timestamp} ${m.messageText} [${m.authorName}]`);
-    return m;
-  });
-  sendResponse({ message: 'background.ts: setMessages: done' });
-  return true;
-});
+chrome.runtime.onMessage.addListener(
+  (request: { type: string, messages: MessageType[] }, _, sendResponse) => {
+    if (request.type !== 'setMessages') return true;
+    request.messages.map((m) => {
+      const out = m.type === 'yt' ? console.info : console.debug;
+      out(`${m.type.padEnd(4, ' ')} ${m.timestamp} ${m.messageText} [${m.authorName}]`);
+      return m;
+    });
+    sendResponse({ message: 'background.ts: setMessages: done' });
+    return true;
+  },
+);
 
 chrome.windows.onBoundsChanged.addListener(async (window) => {
   if (!window.id) return;
   const tabs = await chrome.tabs.query({ windowId: window.id });
   if (!tabs || !tabs[0] || tabs[0].title !== 'Live Chat Grid') return;
   const { left, top, width, height } = window;
-  setConfig({ createWindow: { left, top, width, height } });
+  if (!left || !top || !width || !height) return;
+  setConfigValue<number>('left', left);
+  setConfigValue<number>('top', top);
+  setConfigValue<number>('width', width);
+  setConfigValue<number>('height', height);
 });

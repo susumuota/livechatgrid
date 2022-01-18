@@ -15,43 +15,56 @@
 // limitations under the License.
 
 export type ConfigType = {
-  readonly isActive?: boolean,
-  readonly columns?: number,
-  readonly rows?: number,
-  readonly rowHeight?: string,
-  readonly marginScroll?: number,
-  readonly isFixedGrid?: boolean,
-  readonly createWindow?: {
-    width?: number | undefined,
-    height?: number | undefined,
-    left?: number | undefined,
-    top?: number | undefined,
-    type?: string,
-    focused?: boolean,
-  },
+  readonly isActive: boolean,
+  readonly timerIntervalMs: number,
+  readonly nicoSendDelayMs: number,
+  readonly columns: number,
+  readonly rows: number,
+  readonly columnWidth: string,
+  readonly rowHeight: string,
+  readonly marginScroll: number,
+  readonly isFixedGrid: boolean,
+  readonly width: number,
+  readonly height: number,
+  readonly left: number,
+  readonly top: number,
+  readonly fadeTimeoutEnter: number,
+  readonly fadeTimeoutExit: number,
 };
 
-export const DEFAULT_CONFIG = {
+export const DEFAULT_CONFIG: ConfigType = {
   isActive: true,
+  timerIntervalMs: 5000,
+  nicoSendDelayMs: 3000,
   columns: 1,
   rows: 10,
-  rowHeight: '5em', // 1.5 * 2 + 2 === (1.5 line-height) * (2 lines) + (2 padding)
+  columnWidth: '1fr',
+  rowHeight: '5rem', // 1.5 * 2 + 1 + 1
   marginScroll: 200,
   isFixedGrid: true,
-  createWindow: {
-    width: 400,
-    height: 850,
-    left: 0,
-    top: 0,
-    type: 'popup',
-    focused: true,
-  },
-};
+  width: 400,
+  // 16px * (5rem * 10rows + 1margin) + (window.outerHeight - window.innerHeight)
+  height: 16 * (5 * 10 + 1) + 28,
+  left: 0,
+  top: 0,
+  fadeTimeoutEnter: 1000,
+  fadeTimeoutExit: 5000,
+} as const;
 
 export const setConfig = (config: ConfigType) => chrome.storage.local.set(config);
 
-// eslint-disable-next-line max-len
-export const getConfig = (defaultConfig: ConfigType = DEFAULT_CONFIG) => chrome.storage.local.get(defaultConfig);
+export const setConfigValue = <T>(key: keyof ConfigType, value: T) => (
+  chrome.storage.local.set({ [key]: value })
+);
+
+export const getConfig = (defaultConfig: ConfigType = DEFAULT_CONFIG) => (
+  chrome.storage.local.get(defaultConfig) as Promise<ConfigType>
+);
+
+// TODO: refine
+export const getConfigValue = async <T>(key: keyof ConfigType) => (
+  (await chrome.storage.local.get({ [key]: DEFAULT_CONFIG[key] }))[key] as T
+);
 
 export const clearConfig = () => chrome.storage.local.clear();
 
@@ -66,32 +79,18 @@ export type MessageType = {
   messageText: string,
 };
 
-const sendSetMessages = (messages: MessageType[]) => {
-  try {
-    chrome.runtime.sendMessage({ type: 'setMessages', messages }, (response) => {
-      console.debug(chrome.runtime.lastError?.message ?? `received message: ${response.message}`);
-    });
-  } catch (err) {
-    console.debug(err);
-  }
-};
-
 const startObserver = (
   messageRoot: Element,
   getMessages: (messageRoot: Element) => MessageType[],
-  sendDelayMs: number,
+  setMessages: (messages: MessageType[]) => void,
 ) => {
   const firstMessages = getMessages(messageRoot);
-  sendSetMessages(firstMessages);
+  setMessages(firstMessages);
   let ids = firstMessages.map((m) => m.id);
   const observer = new MutationObserver(() => {
     const messages = getMessages(messageRoot);
     const filteredMessages = messages.filter((m) => !ids.includes(m.id));
-    if (sendDelayMs > 0) {
-      setTimeout(() => sendSetMessages(filteredMessages), sendDelayMs);
-    } else {
-      sendSetMessages(filteredMessages);
-    }
+    setMessages(filteredMessages);
     ids = messages.map((m) => m.id);
   });
   observer.observe(messageRoot, { childList: true });
@@ -102,12 +101,12 @@ export const updateObserver = async (
   oldState: { observer: MutationObserver | null, messageRoot: Element | null },
   getMessageRoot: () => Element | null,
   getMessages: (messageRoot: Element) => MessageType[],
-  sendDelayMs: number,
+  setMessages: (messages: MessageType[]) => void,
 ) => {
   try {
     const { observer, messageRoot } = oldState;
     const config = await getConfig();
-    if (!config || !config['isActive']) {
+    if (!config || !config.isActive) {
       observer?.disconnect();
       return { observer: null, messageRoot: null };
     }
@@ -121,7 +120,7 @@ export const updateObserver = async (
     }
     observer?.disconnect();
     return {
-      observer: startObserver(nextMessageRoot, getMessages, sendDelayMs),
+      observer: startObserver(nextMessageRoot, getMessages, setMessages),
       messageRoot: nextMessageRoot,
     };
   } catch (err) {

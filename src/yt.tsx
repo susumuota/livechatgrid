@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MessageType, updateObserver } from './common';
+import { getConfigValue, MessageType, updateObserver } from './common';
 
 /** Get live chat element to observe */
 const getMessageRoot = () => {
@@ -52,21 +52,35 @@ const getMessages = (messageRoot: Element) => (
   Array.from(messageRoot.querySelectorAll('yt-live-chat-text-message-renderer')).map(parseMessage)
 );
 
-const sendDelayMs = 0;
-const intervalMs = 5000;
+/** Set live chat messages to somewhere */
+const setMessages = (messages: MessageType[]) => {
+  try {
+    chrome.runtime.sendMessage({ type: 'setMessages', messages }, (response) => {
+      console.debug(chrome.runtime.lastError?.message ?? `received message: ${response.message}`);
+    });
+  } catch (err) {
+    console.debug(err);
+  }
+};
+
 let timer: NodeJS.Timer | null = null;
 let messageRoot: Element | null = null;
 let observer: MutationObserver | null = null;
 
-window.addEventListener('yt-navigate-finish', () => {
+window.addEventListener('yt-navigate-finish', async () => {
   console.debug('yt-navigate-finish');
   if (timer) clearInterval(timer);
   // TODO: adjust manifest.json
   if (!window.location.href.match(/^https:\/\/www\.youtube\.com\/watch\?v=.+/)) return;
+  const timerIntervalMs = await getConfigValue<number>('timerIntervalMs');
   timer = setInterval(async () => {
-    // eslint-disable-next-line max-len
-    ({ observer, messageRoot } = await updateObserver({ observer, messageRoot }, getMessageRoot, getMessages, sendDelayMs));
-  }, intervalMs);
+    ({ observer, messageRoot } = await updateObserver(
+      { observer, messageRoot },
+      getMessageRoot,
+      getMessages,
+      setMessages,
+    ));
+  }, timerIntervalMs);
 });
 
 window.addEventListener('unload', () => {
