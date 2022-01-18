@@ -16,34 +16,37 @@
 
 import React, { createRef, useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Box, createTheme, CssBaseline, Paper, ThemeProvider, Tooltip, Typography, Zoom } from '@mui/material';
+import { Box, createTheme, CssBaseline, Fade, Paper, ThemeProvider, Tooltip, Typography } from '@mui/material';
 
-import { ConfigType, DEFAULT_CONFIG, getConfig, MessageType, setConfig } from './common';
+import { ConfigType, getConfig, getConfigValue, MessageType, setConfigValue } from './common';
 
-// eslint-disable-next-line @typescript-eslint/comma-dangle, max-len
-const useConfig = <T,>(configName: keyof ConfigType): [T, React.Dispatch<React.SetStateAction<T>>] => {
-  const [state, setState] = useState<T>(DEFAULT_CONFIG[configName] as unknown as T);
+// eslint-disable-next-line @typescript-eslint/comma-dangle
+const useConfig = <T,>(
+  configName: keyof ConfigType, initialState: T,
+): [T, React.Dispatch<React.SetStateAction<T>>] => {
+  const [state, setState] = useState<T>(initialState);
 
-  const handleChanged = useCallback(async (changes: object, namespace: string) => {
-    if (namespace !== 'local') return;
-    const config = await getConfig();
-    Object.keys(changes).map((key) => {
-      if (key === configName) setState(config[configName]);
-      return key;
-    });
-  }, []);
-
+  // load
   useEffect(() => {
     const loadConfig = async () => {
-      const config = await getConfig();
-      setState(config[configName]);
+      setState(await getConfigValue<T>(configName));
     };
     loadConfig();
   }, []);
 
+  // save
   useEffect(() => {
-    setConfig({ [configName]: state });
+    setConfigValue<T>(configName, state);
   }, [state]);
+
+  // update
+  const handleChanged = useCallback(async (changes: object, namespace: string) => {
+    if (namespace !== 'local') return;
+    Object.keys(changes).map(async (key) => {
+      if (key === configName) setState(await getConfigValue<T>(configName));
+      return key;
+    });
+  }, []);
 
   useEffect(() => {
     chrome.storage.onChanged.addListener(handleChanged);
@@ -51,14 +54,6 @@ const useConfig = <T,>(configName: keyof ConfigType): [T, React.Dispatch<React.S
   }, [handleChanged]);
 
   return [state, setState];
-};
-
-const createDummyMessages = (arrayLength: number) => {
-  const dummy = () => {
-    const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
-    return { type: 'dummy', id, status: '', img: '', timestamp: '', authorName: '', messageHtml: '', messageText: '' } as MessageType;
-  };
-  return [...Array<number>(arrayLength).keys()].map(dummy); // range(arrayLength)
 };
 
 function MessageHeader({ message }: { message: MessageType }) {
@@ -77,17 +72,18 @@ function MessageHeader({ message }: { message: MessageType }) {
   );
 }
 
-function MessagePaper({ message }: { message: MessageType }) {
+// eslint-disable-next-line max-len
+function MessagePaper({ message, fadeTimeoutEnter, fadeTimeoutExit }: { message: MessageType, fadeTimeoutEnter: number, fadeTimeoutExit: number }) {
   const paperSx = {
     p: 1,
     m: 1,
-    opacity: message.status ? parseFloat(message.status) : 0.9,
+    opacity: 0.9,
     overflow: 'hidden',
     '&:hover': { overflow: 'auto' },
   };
 
   return (
-    <Zoom in={true}>
+    <Fade in={message.status !== 'fadeout'} timeout={{ enter: fadeTimeoutEnter, exit: fadeTimeoutExit }}>
       <Paper sx={paperSx}>
         {message.type === 'yt' ? <MessageHeader message={message} /> : ''}
         <Box>
@@ -96,20 +92,23 @@ function MessagePaper({ message }: { message: MessageType }) {
           </Typography>
         </Box>
       </Paper>
-    </Zoom>
+    </Fade>
   );
 }
 
-function App() {
+function App({ initialConfig }: { initialConfig: ConfigType }) {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [isAutoScroll, setAutoScroll] = useState(true);
   const [isNeedScroll, setNeedScroll] = useState(false);
 
-  const [columns] = useConfig<number>('columns');
-  const [rows] = useConfig<number>('rows');
-  const [rowHeight] = useConfig<string>('rowHeight');
-  const [marginScroll] = useConfig<number>('marginScroll');
-  const [isFixedGrid] = useConfig<boolean>('isFixedGrid');
+  const [columns] = useConfig<number>('columns', initialConfig.columns);
+  const [rows] = useConfig<number>('rows', initialConfig.rows);
+  const [columnWidth] = useConfig<string>('columnWidth', initialConfig.columnWidth);
+  const [rowHeight] = useConfig<string>('rowHeight', initialConfig.rowHeight);
+  const [marginScroll] = useConfig<number>('marginScroll', initialConfig.marginScroll);
+  const [isFixedGrid] = useConfig<boolean>('isFixedGrid', initialConfig.isFixedGrid);
+  const [fadeTimeoutEnter] = useConfig<number>('fadeTimeoutEnter', initialConfig.fadeTimeoutEnter);
+  const [fadeTimeoutExit] = useConfig<number>('fadeTimeoutExit', initialConfig.fadeTimeoutExit);
 
   const theme = useMemo(() => createTheme({ palette: { mode: 'dark' } }), []);
   const lastRef = useMemo(() => createRef<HTMLDivElement>(), []);
@@ -122,11 +121,7 @@ function App() {
       const ids = prev.map((m) => m.id);
       const unique = request.messages.filter((m) => !ids.includes(m.id)); // TODO: need sort?
       if (isFixedGrid) {
-        // padding dummy data if needed
-        const next = (prev.length < maxMessages)
-          ? [...prev, ...createDummyMessages(maxMessages - prev.length)]
-          : prev.slice(-maxMessages);
-        console.assert(next.length === maxMessages);
+        const next = (prev.length > maxMessages) ? prev.slice(-maxMessages) : [...prev];
         // override data
         cursor %= maxMessages;
         unique.map((m) => {
@@ -134,20 +129,15 @@ function App() {
           cursor = (cursor + 1) % maxMessages;
           return m;
         });
-        // change 3 messages darker
-        [...Array<number>(3).keys()].map((i) => {
-          const index = (cursor + i) % maxMessages;
-          next[index] = { ...next[index], status: (0.2 * i + 0.3).toString(10) } as MessageType;
-          return i;
-        });
+        // fadeout the oldest message
+        const index = cursor % maxMessages;
+        if (next[index]) next[index] = { ...next[index], status: 'fadeout' } as MessageType;
         return next;
       }
-      // if isFixedGrid === false
       // remove messages by (columns * n) to keep layout
       const next = [...prev, ...unique];
       return (next.length > maxMessages)
-        ? next.slice(columns * (1 + Math.trunc((next.length - maxMessages) / columns)))
-        : next;
+        ? next.slice(columns * Math.ceil((next.length - maxMessages) / columns)) : next;
     });
     setNeedScroll(!isFixedGrid);
     sendResponse({ message: 'index.tsx: setMessages: done' });
@@ -156,39 +146,49 @@ function App() {
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener(handleMessage);
-    return () => {
-      chrome.runtime.onMessage.removeListener(handleMessage);
-    };
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
   }, [handleMessage]);
 
   useEffect(() => {
-    if (isNeedScroll && isAutoScroll) lastRef.current?.scrollIntoView({ block: 'start', inline: 'start' /* , behavior: 'smooth' */ });
+    if (isNeedScroll && isAutoScroll) lastRef.current?.scrollIntoView({ block: 'start', inline: 'start' });
     setNeedScroll(false);
   }, [isNeedScroll, isAutoScroll, lastRef]);
 
+  const handleScroll = useCallback(() => {
+    setAutoScroll(window.innerHeight + window.scrollY > document.body.offsetHeight - marginScroll);
+  }, [marginScroll]);
+
   useEffect(() => {
-    // eslint-disable-next-line max-len
-    const handleScroll = () => setAutoScroll(window.innerHeight + window.scrollY > document.body.offsetHeight - marginScroll);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [marginScroll]);
+  }, [handleScroll]);
 
   const boxSx = {
     m: 1,
     display: 'grid',
-    gridTemplateColumns: `repeat(${columns}, 1fr)`,
-    gridAutoRows: `minmax(auto, ${rowHeight})`,
+    gridTemplateColumns: `repeat(${columns}, ${columnWidth})`,
+    gridTemplateRows: `repeat(${rows}, ${rowHeight})`,
   };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline enableColorScheme />
       <Box sx={boxSx}>
-        {messages.map((m) => <MessagePaper key={m.id} message={m} />)}
+        {messages.map((m) => (
+          <MessagePaper
+            key={m.id}
+            message={m}
+            fadeTimeoutEnter={fadeTimeoutEnter}
+            fadeTimeoutExit={fadeTimeoutExit}
+          />
+        ))}
       </Box>
       <Box ref={lastRef} />
     </ThemeProvider>
   );
 }
 
-ReactDOM.render(<App />, document.getElementById('app'));
+window.addEventListener('load', async () => {
+  const config: ConfigType = await getConfig();
+  ReactDOM.render(<App initialConfig={config} />, document.getElementById('app'));
+});

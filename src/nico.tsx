@@ -14,7 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MessageType, updateObserver } from './common';
+import { sha1 } from 'object-hash';
+
+import { getConfigValue, MessageType, updateObserver } from './common';
 
 /** Get live chat element to observe */
 const getMessageRoot = () => document.querySelector('div[class^=___table___]');
@@ -22,7 +24,7 @@ const getMessageRoot = () => document.querySelector('div[class^=___table___]');
 /** Parse element to object */
 const parseMessage = (message: Element) => {
   const type = 'nico';
-  const id = message.querySelector('span[class^=___comment-number___]')?.textContent ?? '';
+  const commentNumber = message.querySelector('span[class^=___comment-number___]')?.textContent;
   const status = '';
   const img = '';
   const now = new Date();
@@ -30,6 +32,7 @@ const parseMessage = (message: Element) => {
   const authorName = message.querySelector('span[class^=___comment-author-name___]')?.textContent ?? '';
   const messageText = message.querySelector('span[class^=___comment-text___]')?.textContent ?? '';
   const messageHtml = messageText;
+  const id = commentNumber ?? sha1({ timestamp, messageText });
   return { type, id, status, img, timestamp, authorName, messageHtml, messageText } as MessageType;
 };
 
@@ -40,19 +43,37 @@ const getMessages = (messageRoot: Element) => (
     .filter((m) => m.id)
 );
 
-const sendDelayMs = 3000;
-const intervalMs = 5000;
+/** Set live chat messages to somewhere */
+const setMessages = (messages: MessageType[]) => {
+  try {
+    chrome.runtime.sendMessage({ type: 'setMessages', messages }, (response) => {
+      console.debug(chrome.runtime.lastError?.message ?? `received message: ${response.message}`);
+    });
+  } catch (err) {
+    console.debug(err);
+  }
+};
+
 let timer: NodeJS.Timer | null = null;
 let messageRoot: Element | null = null;
 let observer: MutationObserver | null = null;
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
   console.debug('load');
   if (timer) clearInterval(timer);
+  const timerIntervalMs = await getConfigValue<number>('timerIntervalMs');
+  const nicoSendDelayMs = await getConfigValue<number>('nicoSendDelayMs');
+  const setMessagesFunction = nicoSendDelayMs > 0
+    ? (messages: MessageType[]) => setTimeout(() => setMessages(messages), nicoSendDelayMs)
+    : setMessages;
   timer = setInterval(async () => {
-    // eslint-disable-next-line max-len
-    ({ observer, messageRoot } = await updateObserver({ observer, messageRoot }, getMessageRoot, getMessages, sendDelayMs));
-  }, intervalMs);
+    ({ observer, messageRoot } = await updateObserver(
+      { observer, messageRoot },
+      getMessageRoot,
+      getMessages,
+      setMessagesFunction,
+    ));
+  }, timerIntervalMs);
 });
 
 window.addEventListener('unload', () => {
