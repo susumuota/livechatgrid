@@ -14,9 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { createRef, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { createRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Box, createTheme, CssBaseline, Fade, Paper, ThemeProvider, Tooltip, Typography } from '@mui/material';
+import { Box, createTheme, CssBaseline, Fade, Paper, ThemeProvider, Typography } from '@mui/material';
 
 import { ConfigType, getConfig, getConfigValue, MessageType, setConfigValue } from './common';
 
@@ -59,11 +59,21 @@ function MessageHeader({ message }: { message: MessageType }) {
   return (
     <Box sx={{ display: 'flex' }}>
       <span dangerouslySetInnerHTML={{ __html: message.img }} />
-      <Tooltip title={message.authorName}>
-        <Typography variant="caption" sx={{ opacity: 0.7, ml: 1, flexGrow: 1 }} noWrap>
-          {message.authorName}
-        </Typography>
-      </Tooltip>
+      <Typography variant="caption" sx={{
+        opacity: 0.7,
+        ml: 1,
+        flexGrow: 1,
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        textOverflow: 'ellipsis',
+        '&:hover': {
+          overflowY: 'auto',
+          whiteSpace: 'normal',
+          textOverflow: 'clip',
+        },
+      }}>
+        {message.authorName}
+      </Typography>
       <Typography variant="caption" sx={{ opacity: 0.7 }}>
         {message.timestamp}
       </Typography>
@@ -73,17 +83,35 @@ function MessageHeader({ message }: { message: MessageType }) {
 
 // eslint-disable-next-line max-len
 function MessagePaper({ message, fadeTimeoutEnter, fadeTimeoutExit }: { message: MessageType, fadeTimeoutEnter: number, fadeTimeoutExit: number }) {
+  const [hoverSx, setHoverSx] = useState({});
+  const paperRef = useRef<HTMLDivElement>(null);
+
   const paperSx = {
     p: 1,
     m: 1,
     opacity: 0.9,
     overflow: 'hidden',
-    '&:hover': { overflow: 'auto' },
+    ...hoverSx,
   };
+
+  useEffect(() => {
+    if (paperRef.current && paperRef.current.scrollHeight > paperRef.current.clientHeight) {
+      setHoverSx({
+        '&:hover': {
+          overflowY: 'auto',
+          whiteSpace: 'normal',
+          textOverflow: 'clip',
+          zIndex: 1,
+          height: 'calc(200% - 1rem)', // `${paperRef.current.scrollHeight}px`,
+          transition: 'height 10s',
+        },
+      });
+    }
+  }, [paperRef.current]);
 
   return (
     <Fade in={message.status !== 'fadeout'} timeout={{ enter: fadeTimeoutEnter, exit: fadeTimeoutExit }}>
-      <Paper sx={paperSx}>
+      <Paper sx={paperSx} ref={paperRef}>
         {message.type === 'yt' ? <MessageHeader message={message} /> : ''}
         <Box>
           <Typography>
