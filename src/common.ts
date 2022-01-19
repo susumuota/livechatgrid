@@ -36,15 +36,15 @@ export const DEFAULT_CONFIG: ConfigType = {
   isActive: true,
   timerIntervalMs: 5000,
   nicoSendDelayMs: 3000,
-  columns: 1,
+  columns: 3,
   rows: 10,
   columnWidth: '1fr',
   rowHeight: '5rem', // 1.5 * 2 + 1 + 1
   marginScroll: 200,
   isFixedGrid: true,
-  width: 400,
+  width: 1200,
   // 16px * (5rem * 10rows + 1margin) + (window.outerHeight - window.innerHeight)
-  height: 16 * (5 * 10 + 1) + 28,
+  height: 16 * (5 * 10 + 1) + 28, // 844
   left: 0,
   top: 0,
   fadeTimeoutEnter: 1000,
