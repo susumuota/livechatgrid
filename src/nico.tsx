@@ -62,9 +62,9 @@ window.addEventListener('load', async () => {
   console.debug('load');
   if (timer) clearInterval(timer);
   const timerIntervalMs = await getConfigValue('timerIntervalMs');
-  const nicoSendDelayMs = await getConfigValue('nicoSendDelayMs');
-  const setMessagesFunction = nicoSendDelayMs > 0
-    ? (messages: MessageType[]) => setTimeout(() => setMessages(messages), nicoSendDelayMs)
+  const sendDelayMs = await getConfigValue('nicoSendDelayMs');
+  const setMessagesFunction = sendDelayMs > 0
+    ? (messages: MessageType[]) => setTimeout(() => setMessages(messages), sendDelayMs)
     : setMessages;
   timer = setInterval(async () => {
     ({ observer, messageRoot } = await updateObserver(

@@ -102,8 +102,7 @@ function MessagePaper({ message, fadeTimeoutEnter, fadeTimeoutExit }: { message:
           whiteSpace: 'normal',
           textOverflow: 'clip',
           zIndex: 1,
-          height: 'calc(200% - 1rem)', // `${paperRef.current.scrollHeight}px`,
-          transition: 'height 10s',
+          height: 'calc(200% - 1rem)', // `calc(${paperRef.current.scrollHeight}px + 1rem)`,
         },
       });
     }
@@ -123,8 +122,43 @@ function MessagePaper({ message, fadeTimeoutEnter, fadeTimeoutExit }: { message:
   );
 }
 
+const overrideMessages = (
+  prevMessages: MessageType[],
+  newMessages: MessageType[],
+  maxMessage: number,
+  prevCursor: number,
+): [MessageType[], number] => {
+  const messages = (prevMessages.length > maxMessage)
+    ? prevMessages.slice(-maxMessage) : [...prevMessages];
+  // override data
+  let cursor = prevCursor % maxMessage;
+  newMessages.map((m) => {
+    messages[cursor] = m;
+    cursor = (cursor + 1) % maxMessage;
+    return m;
+  });
+  // fadeout the oldest message
+  const index = cursor % maxMessage;
+  if (messages[index]) messages[index] = { ...messages[index], status: 'fadeout' } as MessageType;
+  return [messages, cursor];
+};
+
+const appendMessages = (
+  prevMessages: MessageType[],
+  newMessages: MessageType[],
+  maxMessage: number,
+  columns: number,
+) => {
+  // remove messages by (columns * n) to keep layout
+  const nextMessages = [...prevMessages, ...newMessages];
+  return (nextMessages.length > maxMessage)
+    ? nextMessages.slice(columns * Math.ceil((nextMessages.length - maxMessage) / columns))
+    : nextMessages;
+};
+
 function App({ initialConfig }: { initialConfig: ConfigType }) {
   const [messages, setMessages] = useState<MessageType[]>([]);
+  const [cursor, setCursor] = useState(0);
   const [isAutoScroll, setAutoScroll] = useState(true);
   const [isNeedScroll, setNeedScroll] = useState(false);
 
@@ -140,36 +174,26 @@ function App({ initialConfig }: { initialConfig: ConfigType }) {
   const theme = useMemo(() => createTheme({ palette: { mode: 'dark' } }), []);
   const lastRef = useMemo(() => createRef<HTMLDivElement>(), []);
 
-  let cursor = 0; // TODO: state?
   const handleMessage = useCallback((request: { type: 'setMessages', messages: MessageType[] }, _, sendResponse) => {
     if (request.type !== 'setMessages') return true;
-    setMessages((prev) => {
-      const maxMessages = columns * rows;
-      const ids = prev.map((m) => m.id);
-      const unique = request.messages.filter((m) => !ids.includes(m.id)); // TODO: need sort?
+    const maxMessage = columns * rows;
+    let nextCursor = cursor % maxMessage;
+    setMessages((prevMessages) => {
+      const ids = prevMessages.map((m) => m.id);
+      const newMessages = request.messages.filter((m) => !ids.includes(m.id)); // TODO: need sort?
       if (isFixedGrid) {
-        const next = (prev.length > maxMessages) ? prev.slice(-maxMessages) : [...prev];
-        // override data
-        cursor %= maxMessages;
-        unique.map((m) => {
-          next[cursor] = m;
-          cursor = (cursor + 1) % maxMessages;
-          return m;
-        });
-        // fadeout the oldest message
-        const index = cursor % maxMessages;
-        if (next[index]) next[index] = { ...next[index], status: 'fadeout' } as MessageType;
-        return next;
+        // eslint-disable-next-line max-len
+        const [nextMessages, c] = overrideMessages(prevMessages, newMessages, maxMessage, cursor);
+        nextCursor = c;
+        return nextMessages;
       }
-      // remove messages by (columns * n) to keep layout
-      const next = [...prev, ...unique];
-      return (next.length > maxMessages)
-        ? next.slice(columns * Math.ceil((next.length - maxMessages) / columns)) : next;
+      return appendMessages(prevMessages, newMessages, maxMessage, columns);
     });
+    setCursor(nextCursor);
     setNeedScroll(!isFixedGrid);
     sendResponse({ message: 'index.tsx: setMessages: done' });
     return true;
-  }, [columns, rows, isFixedGrid]);
+  }, [cursor, columns, rows, isFixedGrid]);
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener(handleMessage);
