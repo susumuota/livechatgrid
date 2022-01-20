@@ -15,8 +15,9 @@
 // limitations under the License.
 
 export type ConfigType = {
-  readonly isActive: boolean,
+  readonly isEnabled: boolean,
   readonly timerIntervalMs: number,
+  readonly ytSendDelayMs: number,
   readonly nicoSendDelayMs: number,
   readonly columns: number,
   readonly rows: number,
@@ -33,21 +34,57 @@ export type ConfigType = {
 };
 
 export const DEFAULT_CONFIG: ConfigType = {
-  isActive: true,
+  /** Enable/disable observer. */
+  isEnabled: true,
+  /** Timer interval to update observer. */
   timerIntervalMs: 5000,
-  nicoSendDelayMs: 3000,
+  /**
+   * Delay milliseconds for YouTube Live chat messages.
+   * Set both delays to 0 if you don't need to synchronize 2 live streaming.
+   * In my case, when I watch both streaming simultaneously (e.g., WNL),
+   * `{ ytSendDelayMs: 0, nicoSendDelayMs: 3000 }`
+   * because nico is 3 seconds faster than yt.
+   */
+  ytSendDelayMs: 0,
+  /** Delay milliseconds for Niconico Live chat messages. */
+  nicoSendDelayMs: 3000, // if nico is 3 seconds faster than yt.
+  /** Number of columns of the grid. */
   columns: 3,
+  /** Number of rows of the grid. */
   rows: 10,
+  /**
+   * Column width of the cell on the grid.
+   * e.g., `1fr`, `20rem`, `200px`.
+   */
   columnWidth: '1fr',
-  rowHeight: '5rem', // 1.5 * 2 + 1 + 1
+  /**
+   * Row height of the cell on the grid.
+   * Specify `(1.5 * N + 2)rem` for N lines.
+   * e.g., `5rem` for 2 lines, `6.5rem` for 3 lines.
+   */
+  rowHeight: '5rem',
+  /**
+   * Margin height for auto scroll.
+   * Only effective when `{ isFixGrid: false }`.
+   * Increase when it fails to auto scroll.
+   */
   marginScroll: 200,
+  /** Enable/disable fixed grid mode. */
   isFixedGrid: true,
+  /** Window width. */
   width: 1200,
-  // 16px * (5rem * 10rows + 1margin) + (window.outerHeight - window.innerHeight)
-  height: 16 * (5 * 10 + 1) + 28, // 844
+  /**
+   * Window height.
+   * e.g., `844` 16px * (5rem * 10rows + 1margin) + 28px, last 28 might depend on the OS.
+   */
+  height: 16 * (5 * 10 + 1) + 28,
+  /** Window position, left. */
   left: 0,
+  /** Window position, top. */
   top: 0,
+  /** Chat message box fade-in timeout milliseconds.  */
   fadeTimeoutEnter: 1000,
+  /** Chat message box fade-out timeout milliseconds.  */
   fadeTimeoutExit: 5000,
 } as const;
 
@@ -92,8 +129,8 @@ const startObserver = (
   let ids = firstMessages.map((m) => m.id);
   const observer = new MutationObserver(() => {
     const messages = getMessages(messageRoot);
-    const filteredMessages = messages.filter((m) => !ids.includes(m.id));
-    setMessages(filteredMessages);
+    const newMessages = messages.filter((m) => !ids.includes(m.id));
+    setMessages(newMessages);
     ids = messages.map((m) => m.id);
   });
   observer.observe(messageRoot, { childList: true });
@@ -109,7 +146,7 @@ export const updateObserver = async (
   try {
     const { observer, messageRoot } = oldState;
     const config = await getConfig();
-    if (!config || !config.isActive) {
+    if (!config || !config.isEnabled) {
       observer?.disconnect();
       return { observer: null, messageRoot: null };
     }

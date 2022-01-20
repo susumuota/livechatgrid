@@ -73,12 +73,16 @@ window.addEventListener('yt-navigate-finish', async () => {
   // TODO: adjust manifest.json
   if (!window.location.href.match(/^https:\/\/www\.youtube\.com\/watch\?v=.+/)) return;
   const timerIntervalMs = await getConfigValue('timerIntervalMs');
+  const sendDelayMs = await getConfigValue('ytSendDelayMs');
+  const setMessagesFunction = sendDelayMs > 0
+    ? (messages: MessageType[]) => setTimeout(() => setMessages(messages), sendDelayMs)
+    : setMessages;
   timer = setInterval(async () => {
     ({ observer, messageRoot } = await updateObserver(
       { observer, messageRoot },
       getMessageRoot,
       getMessages,
-      setMessages,
+      setMessagesFunction,
     ));
   }, timerIntervalMs);
 });

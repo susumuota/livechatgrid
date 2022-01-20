@@ -1,8 +1,8 @@
 # Live Chat Grid
 
-[YouTube Live](https://www.youtube.com/live) と[ニコニコ生放送](https://live.nicovideo.jp/)のチャットを抽出して、グリッドレイアウトで表示する Chrome 拡張機能です。両方のコメントを一つのウインドウに同時に表示出来ます。
+[YouTube Live](https://www.youtube.com/live) と[ニコニコ生放送](https://live.nicovideo.jp/)のチャットを抽出して、グリッドレイアウトで表示する Chrome 拡張機能です。両方のチャットを一つのウインドウに同時に表示出来ます。
 
-一度表示したチャットはスクロールせず同じ位置に表示し続けるので、テキストを読んでいる途中でテキストの位置がスクロールで動くことはありません。新しいチャットは一番古いチャット位置に上書きされます。
+一度表示したチャットはスクロールせず同じ位置に表示し続けるので、テキストを読んでいる途中でテキストの位置がスクロールで上下に動くことはありません。新しいチャットは一番古いチャット位置に順次上書きされます。
 
 ## インストール
 
@@ -71,10 +71,10 @@ chrome.storage.local.set({ isFixedGrid: false, rows: 20 })
 
 ### 機能を停止
 
-`isActive` を `false` にした後に元ページをリロードすると、チャットの抽出を停止します。
+`isEnabled` を `false` にした後に元ページをリロードすると、チャットの抽出を停止します。
 
 ```javascript
-chrome.storage.local.set({ isActive: false })
+chrome.storage.local.set({ isEnabled: false })
 ```
 
 ## ソースコード
