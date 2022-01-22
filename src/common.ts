@@ -40,14 +40,14 @@ export const DEFAULT_CONFIG: ConfigType = {
   timerIntervalMs: 5000,
   /**
    * Delay milliseconds for YouTube Live chat messages.
-   * Set both delays to 0 if you don't need to synchronize 2 live streaming.
-   * In my case, when I watch both streaming simultaneously (e.g., WNL),
+   * Set both delays to 0 if you do not need to synchronize 2 live streamings.
+   * In my case, when I watch both streamings simultaneously (e.g., WNL),
    * `{ ytSendDelayMs: 0, nicoSendDelayMs: 3000 }`
    * because nico is 3 seconds faster than yt.
    */
   ytSendDelayMs: 0,
   /** Delay milliseconds for Niconico Live chat messages. */
-  nicoSendDelayMs: 3000, // if nico is 3 seconds faster than yt.
+  nicoSendDelayMs: 0,
   /** Number of columns of the grid. */
   columns: 3,
   /** Number of rows of the grid. */
@@ -145,8 +145,8 @@ export const updateObserver = async (
 ) => {
   try {
     const { observer, messageRoot } = oldState;
-    const config = await getConfig();
-    if (!config || !config.isEnabled) {
+    const isEnabled = await getConfigValue('isEnabled');
+    if (!isEnabled) {
       observer?.disconnect();
       return { observer: null, messageRoot: null };
     }
