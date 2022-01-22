@@ -16,7 +16,7 @@
 
 import React, { createRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Box, createTheme, CssBaseline, Fade, Paper, ThemeProvider, Typography } from '@mui/material';
+import { Box, createTheme, CssBaseline, Fade, Icon, IconButton, Paper, ThemeProvider, Tooltip, Typography } from '@mui/material';
 
 import { ConfigType, getConfig, getConfigValue, MessageType, setConfigValue } from './common';
 
@@ -81,8 +81,11 @@ function MessageHeader({ message }: { message: MessageType }) {
   );
 }
 
-// eslint-disable-next-line max-len
-function MessagePaper({ message, fadeTimeoutEnter, fadeTimeoutExit }: { message: MessageType, fadeTimeoutEnter: number, fadeTimeoutExit: number }) {
+function MessagePaper({
+  message,
+  fadeTimeoutEnter,
+  fadeTimeoutExit,
+}: { message: MessageType, fadeTimeoutEnter: number, fadeTimeoutExit: number }) {
   const [hoverSx, setHoverSx] = useState({});
   const paperRef = useRef<HTMLDivElement>(null);
 
@@ -156,11 +159,50 @@ const appendMessages = (
     : nextMessages;
 };
 
+const showAppendFilePicker = async (
+  options?: OpenFilePickerOptions & { multiple?: false | undefined },
+) => {
+  const [fh] = await window.showOpenFilePicker(options); // NOT window.showSaveFilePicker
+  const ps = await fh.requestPermission({ mode: 'readwrite' });
+  if (ps === 'granted') return fh;
+  throw new Error('The user did not grant permission.');
+};
+
+const createAppendWritable = async (fileHandle: FileSystemFileHandle) => {
+  const { size } = await fileHandle.getFile();
+  const fs = await fileHandle.createWritable({ keepExistingData: true });
+  await fs.seek(size);
+  return fs;
+};
+
+const getBOM = () => {
+  // https://en.wikipedia.org/wiki/Byte_order_mark#UTF-8
+  const bytes = new Uint8Array([0xef, 0xbb, 0xbf]);
+  return new Blob([bytes.buffer]);
+};
+
+// TODO: use module?
+const stringsToCSV = (data: string[]) => `"${data.map((f) => f.replace(/"/g, '""')).join('","')}"\n`;
+
+const messageToCSV = (message: MessageType) => {
+  // TODO: refine
+  const { type, id, status, img, timestamp, authorName, messageHtml, messageText } = message;
+  const data = [type, id, status, img, timestamp, authorName, messageHtml, messageText];
+  return stringsToCSV(data);
+};
+
+const getCSVHeader = () => {
+  // TODO: refine
+  const data = ['type', 'id', 'status', 'img', 'timestamp', 'authorName', 'messageHtml', 'messageText'];
+  return stringsToCSV(data);
+};
+
 function App({ initialConfig }: { initialConfig: ConfigType }) {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [cursor, setCursor] = useState(0);
   const [isAutoScroll, setAutoScroll] = useState(true);
   const [isNeedScroll, setNeedScroll] = useState(false);
+  const [fileHandle, setFileHandle] = useState<FileSystemFileHandle>();
 
   const [columns] = useConfig('columns', initialConfig.columns);
   const [rows] = useConfig('rows', initialConfig.rows);
@@ -174,26 +216,35 @@ function App({ initialConfig }: { initialConfig: ConfigType }) {
   const theme = useMemo(() => createTheme({ palette: { mode: 'dark' } }), []);
   const lastRef = useMemo(() => createRef<HTMLDivElement>(), []);
 
-  const handleMessage = useCallback((request: { type: 'setMessages', messages: MessageType[] }, _, sendResponse) => {
-    if (request.type !== 'setMessages') return true;
+  const handleMessage = useCallback(async (request: { type: 'setMessages', messages: MessageType[] }, _, sendResponse) => {
+    if (request.type !== 'setMessages' || !request.messages || request.messages.length === 0) return true;
     const maxMessage = columns * rows;
     let nextCursor = cursor % maxMessage;
+    let newMessages: MessageType[] = [];
     setMessages((prevMessages) => {
       const ids = prevMessages.map((m) => m.id);
-      const newMessages = request.messages.filter((m) => !ids.includes(m.id)); // TODO: need sort?
+      newMessages = request.messages.filter((m) => !ids.includes(m.id)); // TODO: need sort?
       if (isFixedGrid) {
-        // eslint-disable-next-line max-len
         const [nextMessages, c] = overrideMessages(prevMessages, newMessages, maxMessage, cursor);
         nextCursor = c;
         return nextMessages;
       }
       return appendMessages(prevMessages, newMessages, maxMessage, columns);
     });
+    if (fileHandle && newMessages.length > 0) {
+      try {
+        const fs = await createAppendWritable(fileHandle);
+        await fs.write(newMessages.map(messageToCSV).join(''));
+        await fs.close();
+      } catch (err) {
+        console.debug(err);
+      }
+    }
     setCursor(nextCursor);
     setNeedScroll(!isFixedGrid);
     sendResponse({ message: 'index.tsx: setMessages: done' });
     return true;
-  }, [cursor, columns, rows, isFixedGrid]);
+  }, [cursor, fileHandle, columns, rows, isFixedGrid]);
 
   useEffect(() => {
     chrome.runtime.onMessage.addListener(handleMessage);
@@ -213,6 +264,22 @@ function App({ initialConfig }: { initialConfig: ConfigType }) {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
+
+  const handleOpen = useCallback(async () => {
+    try {
+      const fh = await showAppendFilePicker();
+      setFileHandle(fh);
+      const { size } = await fh.getFile();
+      if (size !== 0) return;
+      const fs = await createAppendWritable(fh);
+      await fs.write(getBOM()); // for Excel
+      await fs.write(getCSVHeader());
+      await fs.close();
+    } catch (err) {
+      console.debug(err);
+      setFileHandle(undefined);
+    }
+  }, []);
 
   const boxSx = {
     m: 1,
@@ -234,6 +301,11 @@ function App({ initialConfig }: { initialConfig: ConfigType }) {
           />
         ))}
       </Box>
+      <Tooltip title="Save chat to local file (CSV)">
+        <IconButton sx={{ position: 'absolute', top: 0, right: 0, m: 1, p: 1, opacity: 0.1, '&:hover': { opacity: 0.9 } }} onClick={handleOpen}>
+          <Icon>save_alt</Icon>
+        </IconButton>
+      </Tooltip>
       <Box ref={lastRef} />
     </ThemeProvider>
   );
