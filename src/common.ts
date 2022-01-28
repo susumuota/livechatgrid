@@ -31,6 +31,7 @@ export type ConfigType = {
   readonly top: number,
   readonly fadeTimeoutEnter: number,
   readonly fadeTimeoutExit: number,
+  readonly filterRegExp: string,
 };
 
 export const DEFAULT_CONFIG: ConfigType = {
@@ -65,7 +66,7 @@ export const DEFAULT_CONFIG: ConfigType = {
   rowHeight: '5rem',
   /**
    * Margin height for auto scroll.
-   * Only effective when `{ isFixGrid: false }`.
+   * Only effective when `{ isFixedGrid: false }`.
    * Increase when it fails to auto scroll.
    */
   marginScroll: 200,
@@ -86,6 +87,8 @@ export const DEFAULT_CONFIG: ConfigType = {
   fadeTimeoutEnter: 1000,
   /** Chat message box fade-out timeout milliseconds.  */
   fadeTimeoutExit: 5000,
+  /** Regular expression string to filter chat messages. */
+  filterRegExp: '(?:おはようございます|こんにち[わは]|こんばん[わは])',
 } as const;
 
 export const setConfig = (config: ConfigType) => chrome.storage.local.set(config);

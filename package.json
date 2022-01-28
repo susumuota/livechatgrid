@@ -1,6 +1,6 @@
 {
   "name": "livechatgrid",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Live Chat Grid",
   "private": true,
   "scripts": {
@@ -19,13 +19,13 @@
   },
   "homepage": "https://github.com/susumuota/livechatgrid#readme",
   "devDependencies": {
-    "@types/chrome": "^0.0.176",
+    "@types/chrome": "^0.0.177",
     "@types/object-hash": "^2.2.1",
     "@types/react": "^17.0.38",
     "@types/react-dom": "^17.0.11",
     "@types/wicg-file-system-access": "^2020.9.4",
-    "@typescript-eslint/eslint-plugin": "^5.10.0",
-    "@typescript-eslint/parser": "^5.10.0",
+    "@typescript-eslint/eslint-plugin": "^5.10.1",
+    "@typescript-eslint/parser": "^5.10.1",
     "axios": "^0.25.0",
     "copy-webpack-plugin": "^10.2.1",
     "eslint": "^8.7.0",
@@ -36,13 +36,13 @@
     "ts-loader": "^9.2.6",
     "typescript": "^4.5.5",
     "webpack": "^5.67.0",
-    "webpack-cli": "^4.9.1",
+    "webpack-cli": "^4.9.2",
     "webpack-merge": "^5.8.0"
   },
   "dependencies": {
     "@emotion/react": "^11.7.1",
     "@emotion/styled": "^11.6.0",
-    "@mui/material": "^5.3.0",
+    "@mui/material": "^5.3.1",
     "object-hash": "^2.2.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2"

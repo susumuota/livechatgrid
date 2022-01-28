@@ -27,8 +27,7 @@ const parseMessage = (message: Element) => {
   const commentNumber = message.querySelector('span[class^=___comment-number___]')?.textContent;
   const status = '';
   const img = '';
-  const now = new Date();
-  const timestamp = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+  const timestamp = new Date().toISOString();
   const authorName = message.querySelector('span[class^=___comment-author-name___]')?.textContent ?? '';
   const messageText = message.querySelector('span[class^=___comment-text___]')?.textContent ?? '';
   const messageHtml = messageText;

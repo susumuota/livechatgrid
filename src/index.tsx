@@ -56,9 +56,11 @@ const useConfig = <K extends keyof ConfigType>(
 };
 
 function MessageHeader({ message }: { message: MessageType }) {
+  const date = new Date(message.timestamp);
+  const timestamp = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
   return (
-    <Box sx={{ display: 'flex' }}>
-      <span dangerouslySetInnerHTML={{ __html: message.img }} />
+    <Box sx={{ display: 'flex', verticalAlign: 'middle' }}>
+      <img src={message.img} style={{ borderRadius: '50%' }} width="16" height="16" />
       <Typography variant="caption" sx={{
         opacity: 0.7,
         ml: 1,
@@ -75,7 +77,7 @@ function MessageHeader({ message }: { message: MessageType }) {
         {message.authorName}
       </Typography>
       <Typography variant="caption" sx={{ opacity: 0.7 }}>
-        {message.timestamp}
+        {timestamp}
       </Typography>
     </Box>
   );
@@ -219,11 +221,13 @@ function App({ initialConfig }: { initialConfig: ConfigType }) {
   const handleMessage = useCallback(async (request: { type: 'setMessages', messages: MessageType[] }, _, sendResponse) => {
     if (request.type !== 'setMessages' || !request.messages || request.messages.length === 0) return true;
     const maxMessage = columns * rows;
+    const filterRegExp = await getConfigValue('filterRegExp');
     let nextCursor = cursor % maxMessage;
     let newMessages: MessageType[] = [];
     setMessages((prevMessages) => {
       const ids = prevMessages.map((m) => m.id);
-      newMessages = request.messages.filter((m) => !ids.includes(m.id)); // TODO: need sort?
+      const uniqueMessages = request.messages.filter((m) => !ids.includes(m.id));
+      newMessages = uniqueMessages.filter((m) => !(m.messageText.match(filterRegExp)));
       if (isFixedGrid) {
         const [nextMessages, c] = overrideMessages(prevMessages, newMessages, maxMessage, cursor);
         nextCursor = c;
