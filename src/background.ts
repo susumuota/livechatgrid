@@ -39,8 +39,10 @@ chrome.runtime.onMessage.addListener(
   (request: { type: string, messages: MessageType[] }, _, sendResponse) => {
     if (request.type !== 'setMessages') return true;
     request.messages.map((m) => {
+      const date = new Date(m.timestamp);
+      const timestamp = `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
       const out = m.type === 'yt' ? console.info : console.debug;
-      out(`${m.type.padEnd(4, ' ')} ${m.timestamp} ${m.messageText} [${m.authorName}]`);
+      out(`${m.type.padEnd(4, ' ')} ${timestamp} ${m.messageText} [${m.authorName}]`);
       return m;
     });
     sendResponse({ message: 'background.ts: setMessages: done' });

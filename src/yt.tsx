@@ -24,33 +24,53 @@ const getMessageRoot = () => {
   return chatWindow ? queryItems(chatWindow) : null;
 };
 
-const to24h = (timestamp: string) => {
-  const m = timestamp.match(/(\d{1,2}):(\d{2}) ([AP]M)/);
-  if (!m) return timestamp;
-  const [, hour, minute, meridiem]: string[] = m; // meridiem === AM or PM
-  if (!hour) return timestamp;
-  const hour24 = (parseInt(hour, 10) % 12) + (meridiem === 'AM' ? 0 : 12);
-  return `${hour24}:${minute}`;
+const toISOString = (timestamp: string, startDate: Date | null) => {
+  const matchesLive = timestamp.match(/^(\d{1,2}):(\d{2}) ([AP]M)$/);
+  if (matchesLive) { // live, timestamp means current time
+    const [, hour, minute, meridiem]: string[] = matchesLive;
+    if (!hour || !minute || !meridiem) return timestamp;
+    const date = new Date();
+    date.setHours((parseInt(hour, 10) % 12) + (meridiem === 'AM' ? 0 : 12));
+    date.setMinutes(parseInt(minute, 10));
+    if (date.getTime() > Date.now()) date.setTime(date.getTime() - 1000 * 60 * 60 * 24);
+    return date.toISOString();
+  }
+  // archive, timestamp means counted time from the beginning of the video
+  if (!startDate) return new Date().toISOString();
+  const hms = timestamp.split(/:/);
+  // TODO: timestamp is negative time, e.g. -1:20
+  const time = 1000 * (
+    parseInt(hms?.pop() ?? '0', 10) + parseInt(hms?.pop() ?? '0', 10) * 60 + parseInt(hms?.pop() ?? '0', 10) * 60 * 60
+  );
+  const date = new Date();
+  date.setTime(startDate.getTime() + time);
+  return date.toISOString();
 };
 
 /** Parse element to object */
-const parseMessage = (message: Element) => {
+const parseMessage = (message: Element, startDate: Date | null) => {
   const type = 'yt';
   const { id } = message;
   const status = '';
-  const img = message.querySelector('#img')?.outerHTML.replace(/(class=".+?")/g, 'style="border-radius: 50%" width="16" height="16"') ?? '';
-  const timestamp = to24h(message.querySelector('#timestamp')?.textContent ?? '');
+  const img = message.querySelector('#img')?.getAttribute('src') ?? '';
+  const timestamp = toISOString(message.querySelector('#timestamp')?.textContent ?? '', startDate);
   const authorName = message.querySelector('#author-name')?.textContent ?? '';
   const messageHtml = message.querySelector('#message')?.innerHTML.replace(/(class=".+?")/g, 'style="vertical-align: middle" width="16" height="16"') ?? '';
-  // TODO: sanitize
+  // TODO: sanitize?
   const messageText = message.querySelector('#message')?.innerHTML.replace(/<img .+ alt="(.+?)" .+>/g, '$1').replace(/<.+>/g, '') ?? '';
   return { type, id, status, img, timestamp, authorName, messageHtml, messageText } as MessageType;
 };
 
+const getStartDate = () => {
+  const startDateTag = document.querySelector('script#scriptTag')?.textContent?.match(/"startDate":"(.+?)",/)?.[1];
+  return startDateTag ? new Date(startDateTag) : null;
+};
+
 /** Get live chat messages */
-const getMessages = (messageRoot: Element) => (
-  Array.from(messageRoot.querySelectorAll('yt-live-chat-text-message-renderer')).map(parseMessage)
-);
+const getMessages = (messageRoot: Element) => {
+  const startDate = getStartDate();
+  return Array.from(messageRoot.querySelectorAll('yt-live-chat-text-message-renderer')).map((m) => parseMessage(m, startDate));
+};
 
 /** Set live chat messages to somewhere */
 const setMessages = (messages: MessageType[]) => {
